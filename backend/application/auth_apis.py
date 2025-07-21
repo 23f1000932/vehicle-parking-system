@@ -7,31 +7,45 @@ def register():
     
     body_content = request.get_json()
     
-    if 'email' not in body_content or 'password' not in body_content:
+    required_fields = ['email', 'password', 'name', 'address', 'pin']
+    if not all(field in body_content for field in required_fields):
         return make_response(jsonify({
-            'message': 'email and password are required'
-        }),400)
+            'message': f'Missing required fields. Required: {", ".join(required_fields)}'
+        }), 400)
 
     email = body_content.get('email')
     password = body_content.get('password')
+    name = body_content.get('name')
+    address = body_content.get('address')
+    pin = body_content.get('pin')
 
-    # Use current_app.security.datastore instead of importing datastore
     datastore = current_app.security.datastore
     
-    user = datastore.find_user(email=email)
-    if user:
+    if datastore.find_user(email=email):
         return make_response(jsonify({
             'message': 'User already exists'
         }), 400)
 
     user_role = datastore.find_role('user')
-    user = datastore.create_user(email=email, password=password, roles=[user_role])
+
+    user = datastore.create_user(
+        email=email, 
+        password=password, 
+        name=name,
+        address=address,
+        pin=pin,
+        roles=[user_role]
+    )
     db.session.commit()
 
     return make_response(jsonify({
         'message': 'User created successfully',
         'user': {
+            'id': user.id,
             'email': user.email,
+            'name': user.name,
+            'address': user.address,
+            'pin': user.pin,
             'roles': [role.name for role in user.roles]
         }
     }), 201)

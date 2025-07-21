@@ -2,7 +2,7 @@ from flask import Flask
 from application.config import LocalDevelopmentConfig
 from application.models import db, User, Role
 from flask_security import Security, SQLAlchemyUserDatastore
-from flask_security import hash_password        
+# from flask_security import hash_password        
 
 
 
@@ -14,7 +14,7 @@ def create_app():
     db.init_app(app)
     datastore = SQLAlchemyUserDatastore(db,User,Role)
     app.security = Security(app, datastore)
-    app.app_context().push()
+    # app.app_context().push()
     return app
 
 app = create_app()
@@ -27,9 +27,13 @@ with app.app_context():
 
 
     if not app.security.datastore.find_user(email = "user@admin.com"):
-        app.security.datastore.create_user(email = "user@admin.com",
-                                           password = hash_password("1234"),
-                                           roles = ['admin'])
+        app.security.datastore.create_user(
+            email = "user@admin.com",
+            password = "1234",
+            name = "Admin User",
+            address = "Admin Address",
+            pin = "000000",
+            roles = ['admin'])
     db.session.commit()
         
 

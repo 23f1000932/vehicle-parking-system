@@ -14,6 +14,9 @@ class User(db.Model,UserMixin):
     password = db.Column(db.String, nullable =False)
     fs_uniquifier = db.Column(db.String, unique = True, nullable = False)
     active = db.Column(db.Boolean, nullable = False)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(255), nullable=False)
+    pin = db.Column(db.String(10), nullable=False)
     roles = db.relationship('Role', backref = 'bearer', secondary = 'user_roles')
     # more attributes can be added
 

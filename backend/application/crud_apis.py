@@ -1,6 +1,6 @@
 from application.models import db, Lot, Spot, Reservation, User
 from flask import request, jsonify, current_app
-from flask_security import 
+from flask_security import Security
 from datetime import datetime
 
 # =============== LOT CRUD APIs ===============
