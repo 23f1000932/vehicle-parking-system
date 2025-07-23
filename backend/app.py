@@ -2,6 +2,7 @@ from flask import Flask
 from application.config import LocalDevelopmentConfig
 from application.models import db, User, Role
 from flask_security import Security, SQLAlchemyUserDatastore
+from flask_cors import CORS
 # from flask_security import hash_password        
 
 
@@ -12,6 +13,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(LocalDevelopmentConfig)
     db.init_app(app)
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "allow_headers": "*"}})
     datastore = SQLAlchemyUserDatastore(db,User,Role)
     app.security = Security(app, datastore)
     # app.app_context().push()
@@ -41,12 +43,12 @@ from application.auth_apis import register, login, logout
 from application.crud_apis import (
     create_lot, get_all_lots, get_lot, update_lot, delete_lot,
     get_spots_by_lot, create_reservation, get_all_reservations,
-    get_user_reservations, end_reservation
+    get_user_reservations, end_reservation, get_all_users
 )
 
 # Register the routes
 app.add_url_rule('/api/auth/register', 'register', register, methods=['POST'])
-app.add_url_rule('/login', 'login', login, methods=['POST'])
+app.add_url_rule('/api/auth/login', 'login', login, methods=['POST'])
 app.add_url_rule('/logout', 'logout', logout, methods=['POST'])
 
 # Register lot CRUD routes
@@ -64,6 +66,10 @@ app.add_url_rule('/api/reservations', 'create_reservation', create_reservation, 
 app.add_url_rule('/api/reservations', 'get_all_reservations', get_all_reservations, methods=['GET'])
 app.add_url_rule('/api/users/<int:user_id>/reservations', 'get_user_reservations', get_user_reservations, methods=['GET'])
 app.add_url_rule('/api/reservations/<int:reservation_id>/end', 'end_reservation', end_reservation, methods=['PUT'])
+
+# Register Admin-specific routes
+app.add_url_rule('/api/admin/users', 'get_all_users', get_all_users, methods=['GET'])
+
 
 
 if __name__ == "__main__":

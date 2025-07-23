@@ -1,47 +1,42 @@
 <script setup>
 import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
-
+import { RouterLink, useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const email = ref('');
 const password = ref('');
+const authStore = useAuthStore();
+const router = useRouter();
 
-console.log(email.value, password.value);
-
+const handleLogin = async () => {
+  const success = await authStore.login(email.value, password.value);
+  if (success) {
+    console.log('User object after successful login:', authStore.user);
+    router.push('/dashboard');
+  }
+};
 </script>
 
 <template>
-  <div class="container d-flex justify-content-center align-items-center vh-100">
+  <div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="card p-4 shadow" style="min-width: 350px;">
       <h3 class="mb-4 text-center">Login</h3>
-      <form @submit.prevent="login">
+      <form @submit.prevent="handleLogin">
         <div class="mb-3">
           <label for="email" class="form-label">Email</label>
-          <input
-            v-model="email"
-            type="text"
-            id="email"
-            class="form-control"
-            placeholder="Enter your email"
-            required
-          />
+          <input v-model="email" type="email" id="email" class="form-control" required />
         </div>
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
-          <input
-            v-model="password"
-            type="password"
-            id="password"
-            class="form-control"
-            placeholder="Enter your password"
-            required
-          />
+          <input v-model="password" type="password" id="password" class="form-control" required />
         </div>
         <button type="submit" class="btn btn-primary w-100">Login</button>
       </form>
-      <br>
-      <router-link to="/register" class="btn btn-outline-secondary">Register
-              </router-link>
+      <hr>
+      <p class="text-center mb-0">
+        Don't have an account? 
+        <router-link to="/register">Register here</router-link>
+      </p>
     </div>
   </div>
 </template>

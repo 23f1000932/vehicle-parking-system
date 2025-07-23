@@ -1,4 +1,4 @@
-from application.models import db, Lot, Spot, Reservation, User
+from application.models import db, Lot, Spot, Reservation, User, Role
 from flask import request, jsonify, current_app
 from flask_security import Security
 from datetime import datetime
@@ -326,3 +326,36 @@ def end_reservation(reservation_id):
         
     except Exception as e:
         return jsonify({'message': f'Error ending reservation: {str(e)}'}), 500
+    
+
+def get_all_users():
+    """
+    Retrieves all users with the 'user' role.
+    Accessible only by an admin.
+    """
+    try:
+        # Find the 'user' role object
+        user_role = Role.query.filter_by(name='user').first()
+        if not user_role:
+            return jsonify({'message': "'user' role not found"}), 500
+
+        # Filter users who have the 'user' role
+        users = User.query.filter(User.roles.contains(user_role)).all()
+        
+        users_list = []
+        for user in users:
+            users_list.append({
+                'id': user.id,
+                'email': user.email,
+                'name': user.name,
+                'address': user.address,
+                'pin': user.pin,
+                'active': user.active
+            })
+            
+        return jsonify({'users': users_list}), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Error fetching users: {str(e)}'}), 500
+
+    

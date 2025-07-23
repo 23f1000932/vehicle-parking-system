@@ -1,10 +1,9 @@
-from application.models import db
+from application.models import db, User
 from flask import request, make_response, jsonify
-from flask_security import utils, auth_token_required
+from flask_security import utils
+from flask import current_app
 
 def register():
-    from flask import current_app
-    
     body_content = request.get_json()
     
     required_fields = ['email', 'password', 'name', 'address', 'pin']
@@ -13,27 +12,18 @@ def register():
             'message': f'Missing required fields. Required: {", ".join(required_fields)}'
         }), 400)
 
-    email = body_content.get('email')
-    password = body_content.get('password')
-    name = body_content.get('name')
-    address = body_content.get('address')
-    pin = body_content.get('pin')
-
     datastore = current_app.security.datastore
     
-    if datastore.find_user(email=email):
-        return make_response(jsonify({
-            'message': 'User already exists'
-        }), 400)
+    if datastore.find_user(email=body_content.get('email')):
+        return make_response(jsonify({'message': 'User already exists'}), 400)
 
     user_role = datastore.find_role('user')
-
     user = datastore.create_user(
-        email=email, 
-        password=password, 
-        name=name,
-        address=address,
-        pin=pin,
+        email=body_content.get('email'), 
+        password=body_content.get('password'), 
+        name=body_content.get('name'),
+        address=body_content.get('address'),
+        pin=body_content.get('pin'),
         roles=[user_role]
     )
     db.session.commit()
@@ -51,50 +41,45 @@ def register():
     }), 201)
 
 def login():
-    from flask import current_app
-    
     login_credentials = request.get_json()
     
     if 'email' not in login_credentials or 'password' not in login_credentials:
-        return jsonify({
-            'message': 'email and password are required'
-        }), 400
+        return jsonify({'message': 'email and password are required'}), 400
 
     email = login_credentials.get('email')
     password = login_credentials.get('password')
 
-    # Use current_app.security.datastore
     datastore = current_app.security.datastore
-    
     user = datastore.find_user(email=email)
+
     if not user:
-        return jsonify({
-            'message': 'User does not exist'
-        }), 404
+        return jsonify({'message': 'User does not exist'}), 404
 
     if not utils.verify_password(password, user.password):
-        return jsonify({
-            'message': 'Invalid password'
-        }), 401
+        return jsonify({'message': 'Invalid password'}), 401
 
-    utils.login_user(user)
+    # --- Start of Correction ---
+    # The login process itself does not require utils.login_user for a token-based API
+    # The important part is generating and returning the token and full user object.
+    
     auth_token = user.get_auth_token()
 
     return jsonify({
         'message': 'Login successful',
         'user': {
+            # Ensure all user details are returned, consistent with registration
+            'id': user.id,
             'email': user.email,
+            'name': user.name,
+            'address': user.address,
+            'pin': user.pin,
             'roles': [role.name for role in user.roles]
         },
         'auth_token': auth_token
     }), 200
+    # --- End of Correction ---
 
 def logout():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header:
-        return jsonify({'message': 'Authorization token required'}), 401
-
-    utils.logout_user()
-    return jsonify({
-        'message': 'Logout successful'
-    }), 200
+    # For token-based auth, logout is typically handled on the client-side
+    # by deleting the token. This endpoint can remain for completeness.
+    return jsonify({'message': 'Logout successful'}), 200

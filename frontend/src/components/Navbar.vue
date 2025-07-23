@@ -1,25 +1,57 @@
-<script>
-    import { RouterLink } from 'vue-router';
-</script>
-<template>
-<nav class="navbar navbar-expand-lg bg-body-tertiary">
-  <div class="container-fluid">
-    <RouterLink class="navbar-brand" to="/">Vehicle Parking System</RouterLink>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <RouterLink class="nav-link active" aria-current="page" to="/login">Login</RouterLink>
-        </li>
-      </ul>
-      <form class="d-flex" role="search">
-        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
-        <button class="btn btn-outline-success" type="submit">Search</button>
-      </form>
-    </div>
-  </div>
-</nav>
+<script setup>
+import { RouterLink, useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
+import { computed } from 'vue'; // Import computed
 
+const authStore = useAuthStore();
+const router = useRouter();
+
+// --- Start of Correction ---
+// Use a computed property for the user's name for safety
+const userName = computed(() => {
+  // Use optional chaining (?.) to prevent errors if user is null
+  return authStore.user?.name || authStore.user?.email || 'User';
+});
+// --- End of Correction ---
+
+const handleLogout = () => {
+  authStore.logout();
+  router.push('/login');
+};
+</script>
+
+<template>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <RouterLink class="navbar-brand" to="/">Vehicle Parking System</RouterLink>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <!-- Logged OUT links -->
+        <ul v-if="!authStore.token" class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <RouterLink class="nav-link" to="/login">Login</RouterLink>
+          </li>
+          <li class="nav-item">
+            <RouterLink class="nav-link" to="/register">Register</RouterLink>
+          </li>
+        </ul>
+
+        <!-- Logged IN links -->
+        <ul v-else class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+           <li class="nav-item">
+            <RouterLink class="nav-link" to="/dashboard">Dashboard</RouterLink>
+          </li>
+          <li class="nav-item">
+            <!-- Use the safe computed property here -->
+            <a class="nav-link" href="#">Welcome, {{ userName }}</a>
+          </li>
+          <li class="nav-item ms-2">
+            <button @click="handleLogout" class="btn btn-outline-light">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
 </template>
