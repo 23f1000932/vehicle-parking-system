@@ -43,7 +43,7 @@ from application.auth_apis import register, login, logout
 from application.crud_apis import (
     create_lot, get_all_lots, get_lot, update_lot, delete_lot,
     get_spots_by_lot, create_reservation, get_all_reservations,
-    get_user_reservations, end_reservation, get_all_users
+    get_user_reservations, end_reservation, get_all_users, calculate_cost
 )
 
 # Register the routes
@@ -70,7 +70,8 @@ app.add_url_rule('/api/reservations/<int:reservation_id>/end', 'end_reservation'
 # Register Admin-specific routes
 app.add_url_rule('/api/admin/users', 'get_all_users', get_all_users, methods=['GET'])
 
-
+# Register cost calculation route
+app.add_url_rule('/api/reservations/<int:reservation_id>/calculate_cost', 'calculate_cost', calculate_cost, methods=['GET'])
 
 if __name__ == "__main__":
     app.run()

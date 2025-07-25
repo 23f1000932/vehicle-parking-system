@@ -277,7 +277,14 @@ def get_user_reservations(user_id):
         
         for reservation in reservations:
             spot = Spot.query.get(reservation.spot_id)
+            if not spot:
+                # If the spot doesn't exist, skip this reservation
+                continue 
+
             lot = Lot.query.get(spot.lot_id)
+            if not lot:
+                # If the lot doesn't exist, skip this reservation
+                continue
             
             reservations_list.append({
                 'id': reservation.id,
@@ -295,7 +302,35 @@ def get_user_reservations(user_id):
     except Exception as e:
         return jsonify({'message': f'Error fetching user reservations: {str(e)}'}), 500
 
+def calculate_cost(reservation_id):
+    """
+    Calculates the current cost of a reservation without ending it.
+    """
+    try:
+        reservation = Reservation.query.get(reservation_id)
+        if not reservation:
+            return jsonify({'message': 'Reservation not found'}), 404
+        
+        if reservation.time_out:
+            return jsonify({'message': 'Reservation already completed'}), 400
+        
+        # Calculate duration and total cost without saving
+        duration = datetime.utcnow() - reservation.time_in
+        hours = duration.total_seconds() / 3600
+        total_cost = hours * reservation.rate
+        
+        return jsonify({
+            'message': 'Cost calculated successfully',
+            'total_cost': round(total_cost, 2)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': f'Error calculating cost: {str(e)}'}), 500
+
 def end_reservation(reservation_id):
+    """
+    Ends a reservation. The cost calculation is now handled separately.
+    """
     try:
         reservation = Reservation.query.get(reservation_id)
         if not reservation:
@@ -313,15 +348,9 @@ def end_reservation(reservation_id):
         
         db.session.commit()
         
-        # Calculate duration and total cost
-        duration = reservation.time_out - reservation.time_in
-        hours = duration.total_seconds() / 3600
-        total_cost = hours * reservation.rate
-        
+        # Return a simple success message
         return jsonify({
-            'message': 'Reservation ended successfully',
-            'duration_hours': round(hours, 2),
-            'total_cost': round(total_cost, 2)
+            'message': 'Reservation ended and payment confirmed successfully'
         }), 200
         
     except Exception as e:
