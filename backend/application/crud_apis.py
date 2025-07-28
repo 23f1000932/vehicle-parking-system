@@ -2,70 +2,74 @@ from application.models import db, Lot, Spot, Reservation, User, Role
 from flask import request, jsonify, current_app
 from flask_security import Security
 from datetime import datetime
+import json 
 
 # =============== LOT CRUD APIs ===============
 
 def create_lot():
+    redis_client = current_app.redis_client
     try:
         data = request.get_json()
-        
+        # (Validation code remains the same)
         if not all(key in data for key in ['name', 'price', 'addr', 'pin', 'max_spots']):
-            return jsonify({'message': 'Missing required fields: name, price, addr, pin, max_spots'}), 400
+            return jsonify({'message': 'Missing required fields'}), 400
         
-        new_lot = Lot(
-            name=data['name'],
-            price=data['price'],
-            addr=data['addr'],
-            pin=data['pin'],
-            max_spots=data['max_spots']
-        )
-        
+        new_lot = Lot(name=data['name'], price=data['price'], addr=data['addr'], pin=data['pin'], max_spots=data['max_spots'])
         db.session.add(new_lot)
         db.session.commit()
         
-        # Create spots for the lot
         for i in range(data['max_spots']):
-            spot = Spot(lot_id=new_lot.id, status='A')  # A = Available
+            spot = Spot(lot_id=new_lot.id, status='A')
             db.session.add(spot)
-        
         db.session.commit()
         
-        return jsonify({
-            'message': 'Lot created successfully',
-            'lot': {
-                'id': new_lot.id,
-                'name': new_lot.name,
-                'price': new_lot.price,
-                'addr': new_lot.addr,
-                'pin': new_lot.pin,
-                'max_spots': new_lot.max_spots
-            }
-        }), 201
+        # --- Cache Invalidation ---
+        # When a new lot is created, the 'all_lots' cache is no longer valid. Delete it.
+        if redis_client:
+            redis_client.delete('all_lots')
+            print("CACHE INVALIDATED for 'all_lots' due to new lot creation.")
         
+        return jsonify({'message': 'Lot created successfully', 'lot': {'id': new_lot.id, 'name': new_lot.name}}), 201
     except Exception as e:
         return jsonify({'message': f'Error creating lot: {str(e)}'}), 500
 
 def get_all_lots():
+    redis_client = current_app.redis_client
+    cache_key = 'all_lots'
+    
+    # --- Check Cache First ---
+    if redis_client:
+        cached_lots = redis_client.get(cache_key)
+        if cached_lots:
+            print("CACHE HIT for 'all_lots'")
+            # If found in cache, return the cached data
+            return jsonify({'lots': json.loads(cached_lots)}), 200
+    
+    print("CACHE MISS for 'all_lots'")
+    # --- Cache Miss: Query Database ---
     try:
         lots = Lot.query.all()
         lots_list = []
-        
         for lot in lots:
             available_spots = Spot.query.filter_by(lot_id=lot.id, status='A').count()
             lots_list.append({
-                'id': lot.id,
-                'name': lot.name,
-                'price': lot.price,
-                'addr': lot.addr,
-                'pin': lot.pin,
-                'max_spots': lot.max_spots,
-                'available_spots': available_spots
+                'id': lot.id, 'name': lot.name, 'price': lot.price, 'addr': lot.addr,
+                'pin': lot.pin, 'max_spots': lot.max_spots, 'available_spots': available_spots
             })
         
-        return jsonify({'lots': lots_list}), 200
+        # --- Save to Cache ---
+        # Store the result in Redis with an expiration of 5 minutes (300 seconds)
+        if redis_client:
+            redis_client.setex(cache_key, 300, json.dumps(lots_list))
         
+        return jsonify({'lots': lots_list}), 200
     except Exception as e:
+        # --- Start of Correction ---
+        # Add a print statement to see the actual error in the terminal
+        print(f"!!! SERVER ERROR in get_all_lots: {str(e)}")
+        # --- End of Correction ---
         return jsonify({'message': f'Error fetching lots: {str(e)}'}), 500
+
 
 def get_lot(lot_id):
     try:
@@ -93,61 +97,53 @@ def get_lot(lot_id):
         return jsonify({'message': f'Error fetching lot: {str(e)}'}), 500
 
 def update_lot(lot_id):
+    redis_client = current_app.redis_client
     try:
         lot = Lot.query.get(lot_id)
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
         
+        # (Update logic remains the same)
         data = request.get_json()
-        
-        if 'name' in data:
-            lot.name = data['name']
-        if 'price' in data:
-            lot.price = data['price']
-        if 'addr' in data:
-            lot.addr = data['addr']
-        if 'pin' in data:
-            lot.pin = data['pin']
+        if 'name' in data: lot.name = data['name']
+        if 'price' in data: lot.price = data['price']
+        if 'addr' in data: lot.addr = data['addr']
+        if 'pin' in data: lot.pin = data['pin']
         if 'max_spots' in data:
             old_max = lot.max_spots
             new_max = data['max_spots']
             lot.max_spots = new_max
-            
-            # Adjust spots if max_spots changed
             if new_max > old_max:
-                # Add new spots
                 for i in range(new_max - old_max):
-                    spot = Spot(lot_id=lot.id, status='A')
-                    db.session.add(spot)
+                    db.session.add(Spot(lot_id=lot.id, status='A'))
             elif new_max < old_max:
-                # Remove excess spots (only if they're available)
                 spots_to_remove = Spot.query.filter_by(lot_id=lot.id, status='A').limit(old_max - new_max).all()
                 for spot in spots_to_remove:
                     db.session.delete(spot)
         
         db.session.commit()
         
+        # --- Cache Invalidation ---
+        if redis_client:
+            redis_client.delete('all_lots')
+            print("CACHE INVALIDATED for 'all_lots' due to lot update.")
+
         return jsonify({'message': 'Lot updated successfully'}), 200
-        
     except Exception as e:
         return jsonify({'message': f'Error updating lot: {str(e)}'}), 500
 
 def delete_lot(lot_id):
+    redis_client = current_app.redis_client
     try:
         lot = Lot.query.get(lot_id)
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
         
-        # Check if there are active reservations
-        active_reservations = Reservation.query.join(Spot).filter(
-            Spot.lot_id == lot_id,
-            Reservation.time_out.is_(None)
-        ).count()
-        
+        # (Deletion logic remains the same)
+        active_reservations = Reservation.query.join(Spot).filter(Spot.lot_id == lot_id, Reservation.time_out.is_(None)).count()
         if active_reservations > 0:
             return jsonify({'message': 'Cannot delete lot with active reservations'}), 400
         
-        # Delete all spots and reservations for this lot
         spots = Spot.query.filter_by(lot_id=lot_id).all()
         for spot in spots:
             Reservation.query.filter_by(spot_id=spot.id).delete()
@@ -156,8 +152,12 @@ def delete_lot(lot_id):
         db.session.delete(lot)
         db.session.commit()
         
-        return jsonify({'message': 'Lot deleted successfully'}), 200
+        # --- Cache Invalidation ---
+        if redis_client:
+            redis_client.delete('all_lots')
+            print("CACHE INVALIDATED for 'all_lots' due to lot deletion.")
         
+        return jsonify({'message': 'Lot deleted successfully'}), 200
     except Exception as e:
         return jsonify({'message': f'Error deleting lot: {str(e)}'}), 500
 

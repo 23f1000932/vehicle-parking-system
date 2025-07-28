@@ -3,19 +3,30 @@ from application.config import LocalDevelopmentConfig
 from application.models import db, User, Role
 from flask_security import Security, SQLAlchemyUserDatastore
 from flask_cors import CORS
+import redis
 # from flask_security import hash_password        
-
-
 
 app = None
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(LocalDevelopmentConfig)
-    db.init_app(app)
+    db.init_app(app)  #Connects the database 
+
+    # Initialize Redis client
+    try:
+        app.redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+        # Ping the server to check the connection
+        app.redis_client.ping()
+        print("Successfully connected to Redis!")
+    except redis.exceptions.ConnectionError as e:
+        print(f"Could not connect to Redis: {e}")
+        app.redis_client = None
+
+    # Initialize Flask-Security
     CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "allow_headers": "*"}})
     datastore = SQLAlchemyUserDatastore(db,User,Role)
-    app.security = Security(app, datastore)
+    app.security = Security(app, datastore) #Authentication system 
     # app.app_context().push()
     return app
 
@@ -27,7 +38,7 @@ with app.app_context():
     app.security.datastore.find_or_create_role(name = 'user', description = "this is user")
     db.session.commit()
 
-
+    #Creating Admin
     if not app.security.datastore.find_user(email = "user@admin.com"):
         app.security.datastore.create_user(
             email = "user@admin.com",
@@ -46,31 +57,31 @@ from application.crud_apis import (
     get_user_reservations, end_reservation, get_all_users, calculate_cost
 )
 
-# Register the routes
+# Authentication routes
 app.add_url_rule('/api/auth/register', 'register', register, methods=['POST'])
 app.add_url_rule('/api/auth/login', 'login', login, methods=['POST'])
 app.add_url_rule('/logout', 'logout', logout, methods=['POST'])
 
-# Register lot CRUD routes
+# CRUD routes
 app.add_url_rule('/api/lots', 'create_lot', create_lot, methods=['POST'])
 app.add_url_rule('/api/lots', 'get_all_lots', get_all_lots, methods=['GET'])
 app.add_url_rule('/api/lots/<int:lot_id>', 'get_lot', get_lot, methods=['GET'])
 app.add_url_rule('/api/lots/<int:lot_id>', 'update_lot', update_lot, methods=['PUT'])
 app.add_url_rule('/api/lots/<int:lot_id>', 'delete_lot', delete_lot, methods=['DELETE'])
 
-# Register spot routes
+# Get spot routes
 app.add_url_rule('/api/lots/<int:lot_id>/spots', 'get_spots_by_lot', get_spots_by_lot, methods=['GET'])
 
-# Register reservation CRUD routes
+# Reservation routes
 app.add_url_rule('/api/reservations', 'create_reservation', create_reservation, methods=['POST'])
 app.add_url_rule('/api/reservations', 'get_all_reservations', get_all_reservations, methods=['GET'])
 app.add_url_rule('/api/users/<int:user_id>/reservations', 'get_user_reservations', get_user_reservations, methods=['GET'])
 app.add_url_rule('/api/reservations/<int:reservation_id>/end', 'end_reservation', end_reservation, methods=['PUT'])
 
-# Register Admin-specific routes
+# User management route
 app.add_url_rule('/api/admin/users', 'get_all_users', get_all_users, methods=['GET'])
 
-# Register cost calculation route
+# Cost calculation route
 app.add_url_rule('/api/reservations/<int:reservation_id>/calculate_cost', 'calculate_cost', calculate_cost, methods=['GET'])
 
 if __name__ == "__main__":
