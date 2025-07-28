@@ -8,21 +8,25 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      // This is the default route
       path: '/',
       name: 'home',
       component: TheWelcome
     },
     {
+      // Route for the login page
       path: '/login',
       name: 'login',
       component: LoginView
     },
     {
+      // Route for the registration page
       path: '/register',
       name: 'register',
       component: RegisterView
     },
     {
+      // Route for the dashboard, which is protected
       path: '/dashboard',
       name: 'dashboard',
       component: DashboardView,

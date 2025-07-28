@@ -6,13 +6,10 @@ import { computed } from 'vue'; // Import computed
 const authStore = useAuthStore();
 const router = useRouter();
 
-// --- Start of Correction ---
-// Use a computed property for the user's name for safety
 const userName = computed(() => {
-  // Use optional chaining (?.) to prevent errors if user is null
+
   return authStore.user?.name || authStore.user?.email || 'User';
 });
-// --- End of Correction ---
 
 const handleLogout = () => {
   authStore.logout();

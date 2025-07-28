@@ -7,6 +7,7 @@ def register():
     body_content = request.get_json()
     
     required_fields = ['email', 'password', 'name', 'address', 'pin']
+    # Check if all required fields are present
     if not all(field in body_content for field in required_fields):
         return make_response(jsonify({
             'message': f'Missing required fields. Required: {", ".join(required_fields)}'
@@ -14,6 +15,7 @@ def register():
 
     datastore = current_app.security.datastore
     
+    # Check if user already exists
     if datastore.find_user(email=body_content.get('email')):
         return make_response(jsonify({'message': 'User already exists'}), 400)
 
@@ -43,6 +45,7 @@ def register():
 def login():
     login_credentials = request.get_json()
     
+    # Checking email and password are provided
     if 'email' not in login_credentials or 'password' not in login_credentials:
         return jsonify({'message': 'email and password are required'}), 400
 
@@ -52,22 +55,20 @@ def login():
     datastore = current_app.security.datastore
     user = datastore.find_user(email=email)
 
+    # Check if user exists
     if not user:
         return jsonify({'message': 'User does not exist'}), 404
-
+    
+    # Verify password
     if not utils.verify_password(password, user.password):
         return jsonify({'message': 'Invalid password'}), 401
 
-    # --- Start of Correction ---
-    # The login process itself does not require utils.login_user for a token-based API
-    # The important part is generating and returning the token and full user object.
-    
+    # Generate auth token    
     auth_token = user.get_auth_token()
 
     return jsonify({
         'message': 'Login successful',
         'user': {
-            # Ensure all user details are returned, consistent with registration
             'id': user.id,
             'email': user.email,
             'name': user.name,
@@ -77,9 +78,6 @@ def login():
         },
         'auth_token': auth_token
     }), 200
-    # --- End of Correction ---
 
 def logout():
-    # For token-based auth, logout is typically handled on the client-side
-    # by deleting the token. This endpoint can remain for completeness.
     return jsonify({'message': 'Logout successful'}), 200

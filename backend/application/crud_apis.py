@@ -24,14 +24,14 @@ def create_lot():
         db.session.commit()
         
         # --- Cache Invalidation ---
-        # When a new lot is created, the 'all_lots' cache is no longer valid. Delete it.
+        # If Redis client is available, invalidate the cache for 'all_lots'
         if redis_client:
             redis_client.delete('all_lots')
             print("CACHE INVALIDATED for 'all_lots' due to new lot creation.")
         
         return jsonify({'message': 'Lot created successfully', 'lot': {'id': new_lot.id, 'name': new_lot.name}}), 201
     except Exception as e:
-        return jsonify({'message': f'Error creating lot: {str(e)}'}), 500
+        return jsonify({'message': f'Error while creating lot: {str(e)}'}), 500
 
 def get_all_lots():
     redis_client = current_app.redis_client
@@ -73,6 +73,7 @@ def get_all_lots():
 
 def get_lot(lot_id):
     try:
+        # Check if the lot exists
         lot = Lot.query.get(lot_id)
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
@@ -94,16 +95,17 @@ def get_lot(lot_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error fetching lot: {str(e)}'}), 500
+        return jsonify({'message': f'Error while fetching lot: {str(e)}'}), 500
 
 def update_lot(lot_id):
     redis_client = current_app.redis_client
     try:
+        # Check if the lot exists
         lot = Lot.query.get(lot_id)
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
         
-        # (Update logic remains the same)
+        # Update logic
         data = request.get_json()
         if 'name' in data: lot.name = data['name']
         if 'price' in data: lot.price = data['price']
@@ -139,7 +141,7 @@ def delete_lot(lot_id):
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
         
-        # (Deletion logic remains the same)
+        # Deletion logic 
         active_reservations = Reservation.query.join(Spot).filter(Spot.lot_id == lot_id, Reservation.time_out.is_(None)).count()
         if active_reservations > 0:
             return jsonify({'message': 'Cannot delete lot with active reservations'}), 400
@@ -159,12 +161,13 @@ def delete_lot(lot_id):
         
         return jsonify({'message': 'Lot deleted successfully'}), 200
     except Exception as e:
-        return jsonify({'message': f'Error deleting lot: {str(e)}'}), 500
+        return jsonify({'message': f'Error while deleting lot: {str(e)}'}), 500
 
 # =============== SPOT CRUD APIs ===============
 
 def get_spots_by_lot(lot_id):
     try:
+        # Check if the lot exists
         lot = Lot.query.get(lot_id)
         if not lot:
             return jsonify({'message': 'Lot not found'}), 404
@@ -195,7 +198,7 @@ def get_spots_by_lot(lot_id):
         return jsonify({'spots': spots_list}), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error fetching spots: {str(e)}'}), 500
+        return jsonify({'message': f'Error while fetching spots: {str(e)}'}), 500
 
 # =============== RESERVATION CRUD APIs ===============
 
@@ -242,7 +245,7 @@ def create_reservation():
         }), 201
         
     except Exception as e:
-        return jsonify({'message': f'Error creating reservation: {str(e)}'}), 500
+        return jsonify({'message': f'Error while creating reservation: {str(e)}'}), 500
 
 def get_all_reservations():
     try:
@@ -268,7 +271,7 @@ def get_all_reservations():
         return jsonify({'reservations': reservations_list}), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error fetching reservations: {str(e)}'}), 500
+        return jsonify({'message': f'Error while fetching reservations: {str(e)}'}), 500
 
 def get_user_reservations(user_id):
     try:
@@ -294,18 +297,17 @@ def get_user_reservations(user_id):
                 'time_in': reservation.time_in.isoformat(),
                 'time_out': reservation.time_out.isoformat() if reservation.time_out else None,
                 'rate': reservation.rate,
-                'status': 'Active' if reservation.time_out is None else 'Completed'
+                'status': 'Active' if reservation.time_out is None else 'Inactive'
             })
         
         return jsonify({'reservations': reservations_list}), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error fetching user reservations: {str(e)}'}), 500
+        return jsonify({'message': f'Error while fetching user reservations: {str(e)}'}), 500
 
 def calculate_cost(reservation_id):
-    """
-    Calculates the current cost of a reservation without ending it.
-    """
+
+    # Real time cost calculation without saving
     try:
         reservation = Reservation.query.get(reservation_id)
         if not reservation:
@@ -315,6 +317,7 @@ def calculate_cost(reservation_id):
             return jsonify({'message': 'Reservation already completed'}), 400
         
         # Calculate duration and total cost without saving
+        # Cost per hour
         duration = datetime.utcnow() - reservation.time_in
         hours = duration.total_seconds() / 3600
         total_cost = hours * reservation.rate
@@ -325,12 +328,11 @@ def calculate_cost(reservation_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error calculating cost: {str(e)}'}), 500
+        return jsonify({'message': f'Error while calculating cost: {str(e)}'}), 500
 
 def end_reservation(reservation_id):
-    """
-    Ends a reservation. The cost calculation is now handled separately.
-    """
+
+    # Ends a reservation.
     try:
         reservation = Reservation.query.get(reservation_id)
         if not reservation:
@@ -354,14 +356,13 @@ def end_reservation(reservation_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'message': f'Error ending reservation: {str(e)}'}), 500
+        return jsonify({'message': f'Error while ending reservation: {str(e)}'}), 500
     
 
 def get_all_users():
-    """
-    Retrieves all users with the 'user' role.
-    Accessible only by an admin.
-    """
+
+    # Retrieves all users with the 'user' role.
+    # Accessible only by an admin.
     try:
         # Find the 'user' role object
         user_role = Role.query.filter_by(name='user').first()

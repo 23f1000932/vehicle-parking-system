@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import axios from 'axios';
 import { ref } from 'vue';
 
+// Define the base URL for your API
 const API_URL = 'http://127.0.0.1:5000';
 
 const getInitialUser = () => {
@@ -24,13 +25,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function login(email, password) {
         try {
-            // --- THIS IS THE FINAL CORRECTION ---
-            // The URL must match the route in your app.py file.
             const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
-            // --- END OF CORRECTION ---
             
             const data = response.data;
-            console.log("Data received from backend:", data);
+            console.log("Data received sucessfully :", data);
 
             user.value = data.user;
             token.value = data.auth_token;
@@ -49,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     async function register(userData) {
         try {
             await axios.post(`${API_URL}/api/auth/register`, userData);
-            alert('Registration successful! Please log in.');
+            alert('Registration successful...!! Now you can Login.');
             return true;
         } catch (error) {
             console.error('Registration failed:', error.response?.data?.message || error.message);
@@ -57,7 +55,8 @@ export const useAuthStore = defineStore('auth', () => {
             return false;
         }
     }
-
+    // Function to log out the user
+    // and clear the local storage
     function logout() {
         user.value = null;
         token.value = null;

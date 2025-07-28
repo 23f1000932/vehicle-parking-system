@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
+// Define reactive variables for login form fields
 const email = ref('');
 const password = ref('');
 const authStore = useAuthStore();

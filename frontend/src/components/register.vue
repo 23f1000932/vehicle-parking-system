@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
+// Define reactive variables for registration form fields
 const email = ref('');
 const password = ref('');
 const name = ref('');
@@ -11,6 +12,7 @@ const pin = ref('');
 const authStore = useAuthStore();
 const router = useRouter();
 
+// Handle registration logic
 const handleRegister = async () => {
   const userData = {
     email: email.value,
